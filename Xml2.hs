@@ -1,0 +1,121 @@
+
+import Data.List (isInfixOf)
+--data and type declarartion
+
+type XmlTagName = String
+type XmlTagValue = String
+type XmlAttrName = String
+type XmlAttrValue = String
+
+
+data XmlAttrs = XmlAttrs [(XmlAttrName,XmlAttrValue)]| NoAttrs deriving (Show)
+
+data XmlElem =   XmlElem XmlTagName XmlAttrs [XmlElem]
+               | XmlString String | NoContent | XmlComment String
+               deriving (Show)
+                        
+data XmlDoc = XmlRoot XmlTagName XmlAttrs [XmlElem] | XmlHeadComment String XmlDoc | XmlDocProlog PrologInfo XmlDoc deriving (Show)
+data PrologInfo = XmlVersion Float| XmlEncoding String | XmlVersionEncoding (Float,String) | NoProlog deriving (Show)
+
+--end of data and type decalarations
+
+--sample Xml Document in code format and corresponding xml format
+sampleXmlDocument :: XmlDoc
+sampleXmlDocument = XmlHeadComment "This Header Comment is present at the beginning of the file"
+                    (XmlDocProlog (XmlVersionEncoding (2.0,"UCF-9"))
+                     (XmlHeadComment "The Head Comment can alsos be added after the prologue"
+                      (XmlRoot "Product" NoAttrs
+                       [
+                         XmlElem "Keyboard" (XmlAttrs [("brand","Yamaha"),("rank","1"),("Price","Always > 20k")])
+                         [(XmlString "\"Price\"=50"),XmlComment "This is a normal  comment"]
+                       ,
+                         XmlElem "Computer" (XmlAttrs [("company","Logitech"),("rank","2")])
+                         [NoContent]
+                         
+                       ]
+                      )
+                     )
+                    )
+
+ {-
+The equivalent xml document is
+
+<!-- This Header Comment is present at the beginning of the file -->
+<?xml version="2.0" encoding="UCF-9>
+<!-- The Head Comment can alsos be added after the prologue -->
+<Product>
+    <Keyboard brand="Yamaha" rank="1" Price="Always &gt; 20k">
+        &quot;Price&quot;=50
+        <!-- This is a normal  comment -->
+    </Keyboard>
+    <Computer company="Logitech" rank="2">
+    </Computer>
+</Product>
+-}
+-- end of sample
+
+addEntityReferences :: String -> String
+addEntityReferences "" = ""
+addEntityReferences (x:xs)
+  | x == '\"' = "&quot;" ++ addEntityReferences xs
+  | x == '\'' = "&apos;" ++ addEntityReferences xs
+  | x == '>'  = "&gt;"   ++ addEntityReferences xs
+  | x == '<'  = "&lt;"   ++ addEntityReferences xs
+  | x == '&'  = "&amp;"  ++ addEntityReferences xs
+  | otherwise = x        :   addEntityReferences xs
+
+
+checkForValidComment x = if "--" `isInfixOf` x
+                         then
+                           error "Comments should not conatain --"
+                         else x
+                
+
+addAttrs :: XmlAttrs ->String
+addAttrs NoAttrs = ""
+addAttrs (XmlAttrs listAttrs) = let x= map (\(a,b) -> " " ++ a ++ "=\"" ++ addEntityReferences b ++ "\"") listAttrs
+                                in foldl (\acc x -> acc ++ x) "" x
+
+addChildren :: [XmlElem] -> Int -> String
+addChildren []     _       = ""
+addChildren (XmlComment x : xs) indent = addIndentation indent ++ "<!-- " ++ checkForValidComment x ++ " -->\n" ++ addChildren xs indent
+                                        
+
+                                                                               
+addChildren (NoContent:xs) indent  = addChildren xs indent
+addChildren (XmlString str : xs) indent= addIndentation indent ++ addEntityReferences str ++"\n" ++ addChildren xs indent
+addChildren ((XmlElem name attrs children): xs) indent =
+                                             addIndentation indent ++ "<" ++ name ++ addAttrs attrs ++ ">\n"
+                                             ++
+                                             addChildren children (indent+1)
+                                             ++
+                                             addIndentation indent ++ "</" ++ name ++ ">\n"
+                                             ++
+                                             addChildren xs (indent)
+
+
+
+addIndentation :: Int -> String
+addIndentation n
+        | n<= 0 = ""
+        | otherwise = "    " ++ addIndentation (n-1)
+
+     
+
+generateXmlDoc :: XmlDoc -> String
+generateXmlDoc (XmlHeadComment comment remaining) = "<!-- " ++ checkForValidComment comment ++ " -->\n" ++ generateXmlDoc remaining
+generateXmlDoc (XmlDocProlog info remaining) = expandInfo info ++ generateXmlDoc remaining
+                                              where
+                                                expandInfo (NoProlog) = ""
+                                                expandInfo (XmlVersion x) = "<?xml version=\"" ++ show x ++ "\">\n"
+                                                expandInfo (XmlEncoding x) =  "<?xml encoding=\"" ++ x ++ "\">\n"
+                                                expandInfo (XmlVersionEncoding (x,y)) ="<?xml version=\"" ++ show x ++ "\" encoding=\"" ++ y ++ ">\n"
+generateXmlDoc (XmlRoot name attrs children) =
+                                              "<" ++ name ++ addAttrs attrs ++ ">\n"
+                                              ++
+                                              addChildren children 1
+                                              ++
+                                              "</" ++ name ++ ">"
+
+                                              
+

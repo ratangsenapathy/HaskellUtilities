@@ -1,0 +1,34 @@
+import Data.List (isInfixOf)
+--data and type declarartion
+
+type XmlTagName = String
+type XmlTagValue = String
+type XmlAttrName = String
+type XmlAttrValue = String
+type XmlVersion = Float
+type XmlEncoding = String
+
+data XmlAttrs = XmlAttrs [(XmlAttrName,XmlAttrValue)]| NoAttrs deriving (Show)
+
+data XmlElem =   XmlElem XmlTagName XmlAttrs [XmlElem]
+               | XmlString String | NoContent | XmlComment String
+               deriving (Show)
+                        
+data XmlDoc = XmlDoc XmlTagName XmlAttrs [XmlElem] deriving (Show)
+
+
+--end of data and type decalarations
+
+--sample Xml Document in code format and corresponding xml format
+sampleXmlDocument :: XmlDoc
+sampleXmlDocument = XmlDoc "Product" NoAttrs
+                    [
+                      XmlElem "Keyboard" (XmlAttrs [("brand","Yamaha"),("rank","1"),("Price","Always > 20k")])
+                       [(XmlString "\"Price\"=50"),XmlComment "This is a comment"]
+                      ,
+                      XmlElem "Computer" (XmlAttrs [("company","Logitech"),("rank","2")])
+                       [NoContent]
+                      
+                    ]
+
+-- end of sample

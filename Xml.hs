@@ -1,0 +1,138 @@
+import Data.List (isInfixOf)
+
+--type and data declarations
+
+
+type XmlVersion = Float
+type XmlEncoding = String
+type XmlAttributeName = String
+type XmlAttributeValue = String
+type XmlTagName = String
+type XmlComment = String
+
+data XmlAttrs = XmlAttrs{ listAttrs :: [(XmlAttributeName,XmlAttributeValue)]}|NoAttrs  deriving (Show)
+data XmlContent = XmlKids { tagKids  :: [XmlElem]} | XmlVal {tagVal :: String}|NoVal deriving (Show)
+data XmlElem = XmlElem {
+			    tagName :: XmlTagName
+			   ,tagAttrs :: XmlAttrs
+			   ,tagContent :: XmlContent
+		       } deriving (Show)
+
+
+-- end of type and data declarations
+
+
+--sample Xml Document in code form and xml form
+
+
+sampleXmlDocument :: XmlElem
+sampleXmlDocument=  XmlElem "Product" NoAttrs
+  	     	       (XmlKids
+		       [
+				XmlElem "Grape" (XmlAttrs [("category","fruit"),("colour","green"), ("special","W \" W")])
+					NoVal
+				,
+				XmlElem "Carrot" (XmlAttrs [("category","vegetable"),("color","orange")])
+				        (XmlVal "Good for you")
+				,
+				XmlElem "Tomato" (XmlAttrs [("category","fruit"),("colour","red")])
+				        (XmlKids
+					[
+                                          XmlElem "Price" NoAttrs
+					  	  (XmlVal "80.0")
+
+					]
+					)
+				
+		       ]
+		       )
+
+
+{-- The  above sample document is equivalent the xml below
+<Product>
+    <Grape category = "fruit" colour = "green">
+    </Grape>
+    <Carrot category = "vegetable" color = "orange">
+        Good for you
+    </Carrot>
+    <Tomato category = "fruit" colour = "red">
+        <Price>
+            80.0
+        </Price>
+    </Tomato>
+</Product>
+*Main>
+--}
+
+
+--end of samples
+
+
+--Basic functions
+
+
+replaceChar :: String -> String
+replaceChar "" = ""
+replaceChar (x:xs)
+	     | x == '\"' = "&quot;" ++ replaceChar xs
+	     | x == '\'' = "&apos;" ++ replaceChar xs
+	     | x == '>'  = "&gt;"   ++ replaceChar xs
+	     | x == '<'  = "&lt;"   ++ replaceChar xs
+	     | x == '&'  = "&amp;"  ++ replaceChar xs 
+	     | otherwise = x: replaceChar xs
+	     
+
+--End of basic functions
+
+
+--Conversion from code representation to xml file functions
+
+
+extractAttrs :: [(XmlAttributeName,XmlAttributeValue)] -> String
+extractAttrs [] = ""
+extractAttrs (x:xs)
+	     | "\"" `isInfixOf` snd (x) = ( " " ++ fst(x) ++ " = \"" ++ (replaceChar $ snd x) ++ "\"") ++ extractAttrs xs
+	     | otherwise = ( " " ++ fst(x) ++ " = \"" ++ snd(x) ++ "\"") ++ extractAttrs xs
+
+
+showTagAttrs :: XmlAttrs -> String
+showTagAttrs NoAttrs = ""
+showTagAttrs (XmlAttrs attrs) = extractAttrs attrs
+
+
+extractKids :: [XmlElem] -> Int -> String
+extractKids [] _ = ""
+extractKids (x:xs) indentation  = showXmlDoc x indentation ++ "\n" ++ extractKids xs indentation
+
+
+showTagContent :: XmlContent -> Int -> String
+showTagContent NoVal _ = ""
+showTagContent (XmlVal x) indentation = addIndentation indentation ++ x ++ "\n"
+showTagContent (XmlKids kids) indentation = extractKids kids indentation
+
+
+addIndentation :: Int -> String
+addIndentation n
+	| n<= 0 = ""
+	| otherwise = "    " ++ addIndentation (n-1)       -- each indentation count is equal to 4 spaces
+
+
+showXmlDoc :: XmlElem -> Int -> String
+showXmlDoc (XmlElem name attrs content) indentation  = addIndentation indentation ++ "<" ++ name ++ (showTagAttrs attrs) ++ ">\n"
+	       		     	   	     	       ++
+					      	       showTagContent content (indentation+1)
+					      	       ++
+						       addIndentation indentation
+						       ++
+					      	       "</" ++ name ++ ">"
+						       
+
+generateXmlDoc :: XmlElem -> XmlVersion -> XmlEncoding -> String
+generateXmlDoc x v e = "<?xml version = \"" ++ show v ++ "\" encoding = \"" ++ e ++"\">\n"
+	       	       ++
+		       showXmlDoc x 0
+
+
+
+
+--end of conversion from code representation to xml file segment
